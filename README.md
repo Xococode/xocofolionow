@@ -2,11 +2,11 @@
 
 
 
-![XOCOFOLIO](xocolienzo.jpg)
+![XOCOLIENZO](xocolienzo.jpg)
 
 
 ## Acceso Rápido a la Aplicación
-[XOCOFOLIO - Demo en vivo](https://xococode.github.io/xocofolionow/)
+[XOCOLIENZO - Demo en vivo](https://xococode.github.io/xocofolionow/)
 
 
 
