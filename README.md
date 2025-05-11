@@ -1,5 +1,17 @@
 # Guía de Uso de XOCOLIENZO – Editor Canvas con Konva.js
 
+
+
+![XOCOFOLIO](xocofolio.jpg)
+
+
+## Acceso Rápido a la Aplicación
+[XOCOFOLIO - Demo en vivo](https://xococode.github.io/xocofolionow/)
+
+
+
+
+
 XOCOLIENZO es un editor de páginas “canvas” basado en [Konva.js], que permite dibujar formas básicas, pintar a mano alzada, manejar imágenes y texto prediseñado, gestionar capas, copiar/pegar/duplicar objetos y exportar a PDF. A continuación encontrarás un recorrido por sus componentes y flujos de trabajo.
 
 ---
