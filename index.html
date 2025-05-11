@@ -1,0 +1,1020 @@
+    
+    
+    <!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XOCOLIENZO (Konva.js - Copiar/Pegar, Menú Contextual)</title>
+    <script src="https://unpkg.com/konva@9.3.6/konva.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; overflow: hidden; font-size: 14px; color: #333; }
+        .editor-container { display: flex; height: 100vh; width: 100vw; }
+        button:disabled, input:disabled { opacity: 0.5; cursor: not-allowed; }
+        input[type="color"] { min-width: 24px; width: 24px; height: 24px; border: 1px solid #ccc; padding: 0; vertical-align: middle; border-radius: 4px; cursor: pointer;}
+        label { margin-right: 5px; vertical-align: middle; font-size: 13px; }
+        select, input[type="number"], input[type="range"] { padding: 4px 6px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; font-size: 13px; vertical-align: middle; box-sizing: border-box; height: 28px; }
+        input[type="number"] { width: 60px; }
+        input[type="range"] { padding: 0; height: auto;}
+
+
+        .sidebar { width: 280px; background-color: #ffffff; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; overflow: hidden; }
+        .sidebar-section { padding: 12px; border-bottom: 1px solid #f0f0f0; }
+        .sidebar-section-title { font-size: 12px; color: #777; margin-bottom: 8px; text-transform: uppercase; font-weight: 500;}
+        .search-input-wrapper { display: flex; align-items: center; background-color: #f5f5f5; border-radius: 20px; padding: 8px 12px; border: 1px solid #e0e0e0; }
+        .search-input-wrapper svg { margin-right: 8px; color: #666; }
+        .search-input-wrapper input { border: none; background: transparent; outline: none; width: 100%; font-size: 14px; }
+        .search-input-wrapper input::placeholder { color: #666; }
+        .action-buttons { display: flex; gap: 8px; }
+        .main-btn { flex-grow: 1; padding: 10px; background-color: #6a0dad; color: white; border: none; border-radius: 6px; font-weight: 500; cursor: pointer; text-align: center; font-size: 14px; }
+        .main-btn:hover { background-color: #580bac; }
+        
+        .sidebar-tabs { display: flex; padding: 0; }
+        .tab { flex: 1; text-align: center; padding: 12px 8px; cursor: pointer; color: #666; font-weight: 500; position: relative; font-size: 14px; border-bottom: 1px solid #f0f0f0; }
+        .tab.active { color: #000; border-bottom-color: #6a0dad; }
+        .tab.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px; background-color: #6a0dad; }
+
+        .sidebar-content-area { flex-grow: 1; overflow-y: auto; }
+        .sidebar-panel { display: none; padding: 8px; }
+        .sidebar-panel.active { display: block; }
+
+        .sidebar-image-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+        .sidebar-image-item { border-radius: 6px; overflow: hidden; position: relative; aspect-ratio: 1 / 1; background-color: #f0f0f0; cursor: grab; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd; }
+        .sidebar-image-item img { max-width: 90%; max-height: 90%; object-fit: contain; display: block; }
+        .sidebar-image-item .img-name { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6); color: white; font-size: 10px; padding: 3px 4px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .preset-text-btn { display: block; width: calc(100% - 10px); margin: 5px; padding: 12px 10px; background-color: #fff; border: 1px solid #ddd; border-radius: 6px; text-align: left; cursor: grab; font-family: inherit; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .preset-text-btn:hover { background-color: #f9f9f9; border-color: #ccc; }
+        .preset-text-title { font-size: 20px; font-weight: bold; }
+        .preset-text-subtitle { font-size: 16px; font-weight: 500; }
+        .preset-text-body { font-size: 13px; }
+        .hidden-file-input { display: none; }
+
+        .main-content { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; background-color: #f9fafb; }
+        .top-toolbar { display: flex; padding: 0 12px; border-bottom: 1px solid #e0e0e0; background-color: #ffffff; align-items: center; justify-content: flex-start; height: auto; min-height: 48px; box-sizing: border-box; flex-wrap: wrap; gap: 8px; }
+        .toolbar-group { display: flex; align-items: center; gap: 6px; }
+        .top-icon-btn { padding: 6px 8px; border-radius: 4px; cursor: pointer; background: none; border: none; font-size: 13px; color: #555; display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 28px; box-sizing: border-box;}
+        .top-icon-btn:hover, .top-icon-btn.active-tool, .top-icon-btn.active { background-color: #e0e8f3; }
+        .top-icon-btn svg { width: 16px; height: 16px; }
+        .separator { width: 1px; height: 20px; background-color: #d0d0d0; margin: 0 4px; }
+        .toolbar-group-right { margin-left: auto; } 
+        
+        .canvas-area { flex-grow: 1; position: relative; display: flex; align-items: center; justify-content: center; padding: 0; overflow: hidden; background-image: radial-gradient(hsl(0, 0%, 82%) 0.5px, transparent 0.5px); background-size: 15px 15px; }
+        #konva-container-wrapper { width: 100%; height: 100%; overflow: hidden; cursor: grab; }
+        #konva-container-wrapper.grabbing { cursor: grabbing; }
+        #konva-container-wrapper.drawing-mode { cursor: crosshair; }
+
+        .text-editor-textarea {
+            position: absolute; display: none; border: 1px solid #6a0dad; padding: 0; margin: 0;
+            overflow: hidden; background: none; outline: none; resize: none;
+            line-height: 1; transform-origin: left top; z-index: 10000; 
+        }
+
+        .bottom-bar { display: flex; justify-content: space-between; align-items: center; padding: 0 16px; background-color: #ffffff; border-top: 1px solid #e0e0e0; height: 40px; box-sizing: border-box; z-index: 5; min-height: 40px; }
+        .bottom-bar-group { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+        #object-coords span { margin-right: 8px; color: #555; }
+        #object-coords label { margin-right: 3px; font-weight: 500;}
+        #zoom-level { min-width: 45px; text-align: center; color: #333; font-size: 13px; margin: 0 4px; }
+        .zoom-control-btn { background: none; border: 1px solid #ccc; color: #555; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .zoom-control-btn:hover { background-color: #f0f0f0; }
+        .bottom-tool-btn { background: none; border: none; cursor: pointer; color: #555; display: flex; align-items: center; padding: 6px 8px; border-radius: 4px; font-size: 13px; }
+        .bottom-tool-btn:hover { background-color: #f0f0f0; }
+        .bottom-tool-btn svg { margin-right: 4px; width: 16px; height: 16px; }
+
+        #text-formatting-toolbar input[type="number"] { width: 55px; }
+        #text-formatting-toolbar label { font-size: 13px; line-height: 28px; margin-left: 5px; }
+        #text-formatting-toolbar button b, #text-formatting-toolbar button i, #text-formatting-toolbar button u {
+            font-size: 14px; font-weight: bold; line-height: 1; margin: 0; padding: 0;
+        }
+        #text-formatting-toolbar button i { font-style: italic; }
+        #text-formatting-toolbar button u { text-decoration: underline; }
+
+        #layers-panel-content { list-style: none; padding: 0; margin: 0; }
+        .layer-item {
+            display: flex; align-items: center; padding: 8px 10px;
+            border-bottom: 1px solid #f0f0f0; cursor: pointer; font-size: 13px;
+            background-color: #fff;
+        }
+        .layer-item:hover { background-color: #f9f9f9; }
+        .layer-item.selected { background-color: #e0e8f3; font-weight: 500; }
+        .layer-item.dragging-over { border-top: 2px solid #6a0dad; }
+        .layer-item-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 8px;}
+        .layer-item-controls button { background: none; border: none; cursor: pointer; padding: 4px; color: #555; }
+        .layer-item-controls button:hover { color: #000; }
+        .layer-item-controls button svg { width: 16px; height: 16px; display: block; }
+        .layer-item-controls .locked svg { color: #c0392b; }
+
+        #page-size-controls input[type="number"]{ margin-left: 2px; }
+
+        .drawing-tools-panel { padding: 8px; display: flex; flex-direction: column; gap: 10px;}
+        .drawing-tools-panel .tool-row { display: flex; align-items: center; gap: 8px; }
+        .drawing-tools-panel label { font-size: 13px; min-width: 50px;}
+        .drawing-tools-panel input[type="range"] { flex-grow: 1; }
+
+        .pdf-export-options { padding: 8px; display: flex; flex-direction: column; gap: 10px;}
+        .pdf-export-options .tool-row { display: flex; align-items: center; gap: 8px;}
+        .pdf-export-options label { font-size: 13px; min-width: 80px;}
+        .pdf-export-options input[type="range"] { flex-grow: 1; }
+        .pdf-export-options button { width: 100%; margin-top: 5px;}
+
+        #object-opacity-controls { display: none; align-items: center; gap: 6px; }
+        #object-opacity-controls label { margin-right: 4px; }
+        #object-opacity-slider { width: 100px; }
+        #object-opacity-value { min-width: 30px; text-align: right; }
+
+        /* Menú Contextual */
+        #context-menu {
+            display: none;
+            position: absolute;
+            z-index: 10001; /* Encima del textarea de edición */
+            background-color: white;
+            border: 1px solid #ccc;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.15);
+            border-radius: 4px;
+            padding: 5px 0;
+            min-width: 180px;
+        }
+        #context-menu button {
+            display: block;
+            width: 100%;
+            padding: 8px 15px;
+            text-align: left;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 13px;
+            color: #333;
+        }
+        #context-menu button:hover {
+            background-color: #6a0dad;
+            color: white;
+        }
+        #context-menu hr {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 4px 0;
+        }
+
+    </style>
+</head>
+<body>
+    <input type="file" id="image-upload-input" class="hidden-file-input" accept="image/*" multiple>
+
+    <div class="editor-container">
+        <div class="sidebar">
+            <div style="padding: 15px 12px 5px; text-align: center; border-bottom: 1px solid #f0f0f0;">
+                <a href="https://xocostudio.com/" target="_blank" style="text-decoration: none; color: #333; font-size: 20px; font-weight: bold;">
+                    XOCOLIENZO
+                </a>
+            </div>
+             <div class="sidebar-section">
+                <div class="search-input-wrapper">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path></svg>
+                    <input type="text" id="image-search-input" placeholder="Buscar imágenes por ID">
+                </div>
+            </div>
+            <div class="sidebar-section action-buttons">
+                <button class="main-btn" id="trigger-image-upload">Subir archivos</button>
+            </div>
+            <div class="sidebar-tabs">
+                <div class="tab active" data-tab-content="images-panel">Imágenes</div>
+                <div class="tab" data-tab-content="text-presets-panel">Texto</div>
+                <div class="tab" data-tab-content="tools-panel">Herramientas</div>
+                <div class="tab" data-tab-content="layers-panel">Capas</div>
+            </div>
+            <div class="sidebar-content-area">
+                <div id="images-panel" class="sidebar-panel active">
+                    <div class="sidebar-image-grid" id="sidebar-image-container"></div>
+                </div>
+                <div id="text-presets-panel" class="sidebar-panel">
+                    <p style="font-size: 13px; color: #555; margin: 5px 5px 10px;">Estilos de texto predeterminados</p>
+                    <button class="preset-text-btn preset-text-title" data-text-type="title" draggable="true">Añadir un título</button>
+                    <button class="preset-text-btn preset-text-subtitle" data-text-type="subtitle" draggable="true">Añadir un subtítulo</button>
+                    <button class="preset-text-btn preset-text-body" data-text-type="body" draggable="true">Añadir un poco de texto</button>
+                </div>
+                <div id="tools-panel" class="sidebar-panel">
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Formas Básicas</div>
+                        <button id="add-rect-btn" style="width:100%; padding: 8px; margin-bottom: 5px;">Añadir Rectángulo</button>
+                    </div>
+                    <div class="sidebar-section drawing-tools-panel">
+                        <div class="sidebar-section-title">Dibujo a Mano Alzada</div>
+                        <div class="tool-row">
+                            <button class="top-icon-btn" id="select-tool-btn" title="Herramienta Selección">
+                                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.64,15.27L12,16.91V12H7V10H12V5.09L13.64,3.44L15.06,4.85L13.41,6.5L15.06,8.15L16.5,6.71L19.29,9.5L16.5,12.29L15.06,10.85L13.41,12.5L15.06,14.15L13.64,15.27M3,21V3H5V21H3M19,21V19H21V21H19M19,17V15H21V17H19M19,13V11H21V13H19M19,9V7H21V9H19M19,5V3H21V5H19Z"/></svg>
+                            </button>
+                            <button class="top-icon-btn" id="brush-tool-btn" title="Pincel">
+                                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.36,2.56L16.95,3.97C16.56,3.58 16.05,3.36 15.5,3.36C14.31,3.36 13.36,4.31 13.36,5.5C13.36,6.05 13.58,6.56 13.97,6.95L12.56,8.36H11.14L10.08,7.3L2,15.38V18.5H3.41L4.5,17.41L6.27,19.18L4.5,20.95H2V22H8.5L10.27,20.23L12,22L18.73,15.27L17.67,14.21V12.8L19.07,11.39C19.46,11.78 19.97,12 20.5,12C21.69,12 22.64,11.05 22.64,9.86C22.64,9.31 22.42,8.8 22.03,8.41L21.44,7.82L18.36,2.56Z" /></svg>
+                            </button>
+                            <button class="top-icon-btn" id="eraser-tool-btn" title="Borrador">
+                                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.24,3.56L21.19,8.5C21.97,9.29 21.97,10.55 21.19,11.34L11.34,21.19C10.55,21.97 9.29,21.97 8.5,21.19L3.56,16.24C2.78,15.45 2.78,14.19 3.56,13.4L13.4,3.56C14.19,2.78 15.45,2.78 16.24,3.56M4.44,15.36L9.39,20.31L19.76,9.94L14.81,5L4.44,15.36Z" /></svg>
+                            </button>
+                        </div>
+                        <div class="tool-row">
+                            <label for="brush-color-picker">Color:</label>
+                            <input type="color" id="brush-color-picker" value="#000000">
+                        </div>
+                        <div class="tool-row">
+                            <label for="brush-size-slider">Grosor:</label>
+                            <input type="range" id="brush-size-slider" min="1" max="50" value="5">
+                            <span id="brush-size-value" style="min-width: 20px; text-align: right;">5</span>
+                        </div>
+                    </div>
+                    <div class="sidebar-section pdf-export-options">
+                        <div class="sidebar-section-title">Exportar a PDF</div>
+                         <div class="tool-row">
+                            <label for="pdf-quality-slider">Calidad:</label>
+                            <input type="range" id="pdf-quality-slider" min="1" max="5" value="2">
+                            <span id="pdf-quality-value" style="min-width: 20px; text-align: right;">2</span>
+                        </div>
+                        <button class="main-btn" id="download-pdf-current-btn">PDF Página Actual</button>
+                        <button class="main-btn" id="download-pdf-all-btn">PDF Todas las Páginas</button>
+                    </div>
+                </div>
+                <div id="layers-panel" class="sidebar-panel"> 
+                    <p style="font-size: 13px; color: #555; margin: 0 0 10px; padding: 5px;">Objetos en la página activa</p>
+                    <ul id="layers-panel-content"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="top-toolbar">
+                <div class="toolbar-group">
+                    <button class="top-icon-btn" id="save-project-btn" title="Guardar Proyecto (Ctrl+S)">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"></path></svg>
+                    </button>
+                    <button class="top-icon-btn" id="save-as-project-btn" title="Guardar Proyecto Como...">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"></path></svg>
+                    </button>
+                    <button class="top-icon-btn" id="load-project-btn" title="Cargar Proyecto">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"></path></svg>
+                    </button>
+                    <div class="separator"></div>
+                    <button class="top-icon-btn" id="undo-btn" title="Deshacer (Ctrl+Z)" disabled><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"></path></svg></button>
+                    <button class="top-icon-btn" id="redo-btn" title="Rehacer (Ctrl+Y)" disabled><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.91 16c1.05-3.19 4.05-5.5 7.59-5.5 1.96 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"></path></svg></button>
+                    <div class="separator"></div>
+                    <button class="top-icon-btn" id="copy-btn" title="Copiar (Ctrl+C)" disabled>
+                         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    </button>
+                    <button class="top-icon-btn" id="paste-btn" title="Pegar (Ctrl+V)" disabled>
+                         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 2h-4.18C14.4.84 13.3 0 12 0S9.6.84 9.18 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
+                    </button>
+                    <button class="top-icon-btn" id="duplicate-btn" title="Duplicar (Ctrl+D)" disabled>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 8H8V2H6v6H4v2h2v6H4v2h2v6h2v-6h8v6h2v-6h2v-2h-2V8h2V6h-2V2h-2v6zm-2 2v4H8v-4h6zM4 0v2H2V0h2zm20 0v2h-2V0h2zm-2 20v2H4v-2h18zm2 0h2v2h-2v-2zM0 4v16H2V4H0zm22 0v16h2V4h-2z"/></svg>
+                    </button>
+                    <div class="separator"></div>
+                    
+                    <div class="toolbar-group" id="text-formatting-toolbar" style="display: none;">
+                        <select id="font-family-select" title="Fuente">
+                            <option value="Arial">Arial</option><option value="Verdana">Verdana</option><option value="Helvetica">Helvetica</option><option value="Tahoma">Tahoma</option>
+                            <option value="Times New Roman">Times New Roman</option><option value="Georgia">Georgia</option><option value="Garamond">Garamond</option>
+                            <option value="Impact">Impact</option><option value="Courier New">Courier New</option><option value="Comic Sans MS">Comic Sans MS</option>
+                        </select>
+                        <input type="number" id="font-size-input" title="Tamaño de Fuente" value="16" min="1">
+                        <button class="top-icon-btn" id="bold-btn" title="Negrita"><b>B</b></button>
+                        <button class="top-icon-btn" id="italic-btn" title="Cursiva"><i>I</i></button>
+                        <button class="top-icon-btn" id="underline-btn" title="Subrayado"><u>U</u></button>
+                        <label for="text-color-picker">Color:</label>
+                        <input type="color" id="text-color-picker" title="Color del Texto" value="#333333">
+                    </div>
+                    <div class="separator" id="text-toolbar-separator" style="display: none;"></div>
+
+                    <div class="toolbar-group" id="object-opacity-controls" style="display: none;">
+                        <label for="object-opacity-slider">Opacidad:</label>
+                        <input type="range" id="object-opacity-slider" min="0" max="1" step="0.01" value="1">
+                        <span id="object-opacity-value">100%</span>
+                    </div>
+                    <div class="separator" id="object-opacity-separator" style="display: none;"></div>
+
+                    <button class="top-icon-btn" id="add-new-page-btn" title="Añadir Nueva Página">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 7V4l5 5h-5zm5 11H6V4h7v5h5v11zM8 13h2v2H8v-2zm0 3h2v2H8v-2zm0 3h2v2H8v-2zm8-6h-5v2h5v-2zm0 3h-5v2h5v-2zm0 3h-5v2h5v-2z"/></svg>
+                    </button>
+                    <button class="top-icon-btn" id="delete-active-page-btn" title="Eliminar Página Activa" disabled>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    </button>
+                     <button class="top-icon-btn" id="delete-selected-object-btn" title="Eliminar Objeto Seleccionado (Supr)" disabled>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    </button>
+                    <div class="separator"></div>
+                    <div class="toolbar-group" id="layer-order-controls" style="display: none;">
+                        <button class="top-icon-btn" id="bring-forward-btn" title="Traer Adelante">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 16H11V18H2V16M2 10H14V12H2V10M2 4H14V6H2V4M16.71 15.29L15.29 16.71L18.59 20L22 16.59L20.59 15.17L18.59 17.17L16.71 15.29M16 4V13H18V4H16Z" /></svg>
+                        </button>
+                        <button class="top-icon-btn" id="send-backward-btn" title="Enviar Atrás">
+                           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 6H11V4H2V6M2 12H14V10H2V12M16 18V7H18V18H16M2 18H14V16H2V18M16.71 8.71L15.29 7.29L12 10.59L15.41 14L16.83 12.58L14.83 10.59L16.71 8.71Z" /></svg>
+                        </button>
+                        <button class="top-icon-btn" id="bring-to-front-btn" title="Traer al Frente">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2,6H16V4H2V6M2,10H16V8H2V10M2,14H13V12H2V14M22,12L18,8V11H9V13H18V16L22,12Z" /></svg>
+                        </button>
+                        <button class="top-icon-btn" id="send-to-back-btn" title="Enviar al Fondo">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2,10H16V12H2V10M2,14H16V16H2V14M2,6H13V8H2V6M22,12L18,16V13H9V11H18V8L22,12Z" /></svg>
+                        </button>
+                    </div>
+                    <div class="separator" id="layer-order-separator" style="display: none;"></div>
+                    <div class="toolbar-group" id="page-size-controls" style="display: none;">
+                        <label for="page-width-input">Ancho:</label>
+                        <input type="number" id="page-width-input" min="10">
+                        <label for="page-height-input" style="margin-left: 5px;">Alto:</label>
+                        <input type="number" id="page-height-input" min="10">
+                    </div>
+                </div>
+                <div class="toolbar-group toolbar-group-right">
+                    <button class="top-icon-btn" id="toggle-page-visibility-btn" title="Mostrar/Ocultar Página Activa"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 7.61 17 4.5 12 4.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"></path></svg></button>
+                </div>
+            </div>
+
+            <div class="canvas-area">
+                <div id="konva-container-wrapper"></div>
+            </div>
+
+             <!-- Menú Contextual (inicialmente oculto) -->
+            <div id="context-menu">
+                <button id="ctx-bring-forward">Traer Adelante</button>
+                <button id="ctx-send-backward">Enviar Atrás</button>
+                <hr>
+                <button id="ctx-bring-to-front">Traer al Frente</button>
+                <button id="ctx-send-to-back">Enviar al Fondo</button>
+                <hr>
+                <button id="ctx-duplicate">Duplicar</button>
+                <button id="ctx-delete">Eliminar</button>
+            </div>
+
+            <div class="bottom-bar">
+                <div class="bottom-bar-group bottom-bar-left" id="object-coords">
+                    <span><label>X:</label><span id="coord-x">--</span></span>
+                    <span><label>Y:</label><span id="coord-y">--</span></span>
+                    <span><label>W:</label><span id="coord-w">--</span></span>
+                    <span><label>H:</label><span id="coord-h">--</span></span>
+                </div>
+                <div class="bottom-bar-group bottom-bar-center">
+                    <button class="zoom-control-btn" id="zoom-out-btn">-</button>
+                    <span id="zoom-level">100%</span>
+                    <button class="zoom-control-btn" id="zoom-in-btn">+</button>
+                    <button class="zoom-control-btn" title="Ajustar a Pantalla" id="zoom-fit-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"></path></svg></button>
+                </div>
+                <div class="bottom-bar-group bottom-bar-right">
+                    <button class="bottom-tool-btn" id="prev-page-btn" title="Página Anterior" disabled><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path></svg></button>
+                    <span>Pág. <span id="current-page-indicator">0</span>/<span id="total-pages-indicator">0</span></span>
+                    <button class="bottom-tool-btn" id="next-page-btn" title="Siguiente Página" disabled><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const PAGE_DEFAULT_WIDTH = 800;
+        const PAGE_DEFAULT_HEIGHT = 600;
+        const PAGE_MIN_WIDTH = 50;
+        const PAGE_MIN_HEIGHT = 50;
+        let PAGE_FILL_COLOR = 'white'; 
+        const PAGE_STROKE_COLOR = '#cccccc';
+        const PAGE_ACTIVE_STROKE_COLOR = '#6a0dad';
+        const PAGE_STROKE_WIDTH = 1; 
+        const PAGE_ACTIVE_STROKE_WIDTH = 2; 
+        const PAGE_LOGICAL_X_INITIAL = 50; 
+        const PAGE_LOGICAL_Y_INITIAL = 50; 
+        const PASTE_OFFSET = 20; 
+
+
+        const konvaContainerWrapper = document.getElementById('konva-container-wrapper');
+        const stage = new Konva.Stage({
+            container: 'konva-container-wrapper',
+            width: konvaContainerWrapper.clientWidth,
+            height: konvaContainerWrapper.clientHeight,
+            draggable: true,
+        });
+
+        let currentTool = 'select'; 
+        let isPainting = false;
+        let lastLine;
+        const history = [];
+        let historyStep = -1;
+        const MAX_HISTORY_STEPS = 50; 
+        let clipboard = null; 
+
+
+        stage.on('mousedown touchstart', function(e) {
+            const targetNode = e.target;
+            const contextMenu = document.getElementById('context-menu');
+            if (contextMenu.style.display === 'block' && e.target.getStage()) { 
+                 if (!contextMenu.contains(e.evt.target) && e.target !== currentTransformer && !e.target.findAncestor('.konvajs-transformer')) {
+                    hideContextMenu();
+                }
+            }
+            
+            if (currentTool === 'brush' || currentTool === 'eraser') {
+                handleDrawingMouseDown(e); return;
+            }
+            if (targetNode.getAttr('isLocked')) { stage.draggable(true); return; }
+            if (targetNode !== stage && targetNode.getParent() instanceof Konva.Transformer && currentTransformer && currentTransformer.nodes().includes(targetNode)) {
+                 stage.draggable(false); 
+            } else { stage.draggable(true); }
+            if (stage.isDragging()) konvaContainerWrapper.classList.add('grabbing');
+        });
+        stage.on('mousemove touchmove', function(e) { if (currentTool === 'brush' || currentTool === 'eraser') { handleDrawingMouseMove(e); }});
+        stage.on('mouseup touchend', function(e) {
+            if (currentTool === 'brush' || currentTool === 'eraser') { handleDrawingMouseUp(e); }
+            konvaContainerWrapper.classList.remove('grabbing');
+            if (currentTool === 'select') stage.draggable(true);
+        });
+        stage.on('mouseleave', function() { if (isPainting) { handleDrawingMouseUp(); } konvaContainerWrapper.classList.remove('grabbing'); });
+        
+        stage.on('contextmenu', function (e) {
+            e.evt.preventDefault(); 
+            if (currentTool !== 'select') return;
+            const node = e.target;
+            if (node && node.getAttr('isShape') && node !== stage && node.name() !== 'pageBackgroundRect' && !(node instanceof Konva.Transformer)) {
+                if (!currentTransformer || !currentTransformer.nodes().includes(node)) {
+                    addTransformerToNode(node);
+                }
+                showContextMenu(e.evt.pageX, e.evt.pageY, node);
+            } else {
+                hideContextMenu();
+            }
+        });
+        window.addEventListener('click', function (e) {
+            const contextMenu = document.getElementById('context-menu');
+            if (contextMenu.style.display === 'block' && !contextMenu.contains(e.target)) {
+                hideContextMenu();
+            }
+        });
+
+
+        let pageLayers = [];
+        let activePageLayerIndex = -1;
+        let currentTransformer = null;
+        let uploadedImages = []; 
+        let currentEditingTextNode = null; 
+        let draggedLayerItem = null; 
+
+        const svgIconVisible = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 7.61 17 4.5 12 4.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"></path></svg>';
+        const svgIconHidden = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.44-4.75C21.27 7.61 17 4.5 12 4.5c-1.77 0-3.39.53-4.79 1.4L8.9 7.57A4.973 4.973 0 0112 7zm-1.05 9.05L13.87 13.1c.04-.08.07-.16.1-.24.08-.24.13-.48.13-.76 0-1.66-1.34-3-3-3-.28 0-.55.05-.79.13l-1.97-1.97C7.61 5.34 9.69 4.5 12 4.5c5 0 9.27 3.11 11 7.5-.75 1.87-1.96 3.52-3.49 4.8l-2.06-2.06c.07-.13.14-.26.2-.4.1-.24.15-.48.15-.74zm-5.07-5.07l1.56 1.56c-.05.16-.09.33-.09.51 0 1.66 1.34 3 3 3 .18 0 .35-.04.51-.09l1.56 1.56C13.05 14.74 12.55 15 12 15c-1.66 0-3-1.34-3-3 0-.55.16-1.05.42-1.51L7.88 8.98zm-3.83-3.83L2.27 3.88 1 5.15l2.76 2.76C2.06 9.18 1.21 10.54 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l2.52 2.52 1.27-1.27L3.08 4.12z"></path></svg>';
+        const svgIconLockOpen = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z"></path></svg>';
+        const svgIconLockClosed = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"></path></svg>';
+
+        const addRectBtn = document.getElementById('add-rect-btn');
+        const addNewPageBtn = document.getElementById('add-new-page-btn');
+        const deleteActivePageBtn = document.getElementById('delete-active-page-btn');
+        const deleteSelectedObjectBtn = document.getElementById('delete-selected-object-btn');
+        const togglePageVisibilityBtn = document.getElementById('toggle-page-visibility-btn');
+        const prevPageBtn = document.getElementById('prev-page-btn');
+        const nextPageBtn = document.getElementById('next-page-btn');
+        const currentPageIndicator = document.getElementById('current-page-indicator');
+        const totalPagesIndicator = document.getElementById('total-pages-indicator');
+        const zoomInBtn = document.getElementById('zoom-in-btn');
+        const zoomOutBtn = document.getElementById('zoom-out-btn');
+        const zoomFitBtn = document.getElementById('zoom-fit-btn');
+        const zoomLevelText = document.getElementById('zoom-level');
+        const triggerImageUploadBtn = document.getElementById('trigger-image-upload');
+        const imageUploadInput = document.getElementById('image-upload-input');
+        const sidebarImageContainer = document.getElementById('sidebar-image-container');
+        const sidebarTabs = document.querySelectorAll('.sidebar-tabs .tab');
+        const sidebarPanels = document.querySelectorAll('.sidebar-content-area .sidebar-panel');
+        const presetTextButtons = document.querySelectorAll('.preset-text-btn');
+        const imageSearchInput = document.getElementById('image-search-input');
+        const textFormattingToolbar = document.getElementById('text-formatting-toolbar');
+        const textToolbarSeparator = document.getElementById('text-toolbar-separator');
+        const fontFamilySelect = document.getElementById('font-family-select');
+        const fontSizeInput = document.getElementById('font-size-input');
+        const boldBtn = document.getElementById('bold-btn');
+        const italicBtn = document.getElementById('italic-btn');
+        const underlineBtn = document.getElementById('underline-btn');
+        const textColorPicker = document.getElementById('text-color-picker');
+        const layersPanelContent = document.getElementById('layers-panel-content'); 
+        const pageSizeControls = document.getElementById('page-size-controls');
+        const pageWidthInput = document.getElementById('page-width-input');
+        const pageHeightInput = document.getElementById('page-height-input');
+        const coordX = document.getElementById('coord-x');
+        const coordY = document.getElementById('coord-y');
+        const coordW = document.getElementById('coord-w');
+        const coordH = document.getElementById('coord-h');
+        const undoBtn = document.getElementById('undo-btn');
+        const redoBtn = document.getElementById('redo-btn');
+        const copyBtn = document.getElementById('copy-btn');
+        const pasteBtn = document.getElementById('paste-btn');
+        const duplicateBtn = document.getElementById('duplicate-btn');
+        const downloadPdfCurrentBtn = document.getElementById('download-pdf-current-btn');
+        const downloadPdfAllBtn = document.getElementById('download-pdf-all-btn');
+        const pdfQualitySlider = document.getElementById('pdf-quality-slider');
+        const pdfQualityValue = document.getElementById('pdf-quality-value');
+        const selectToolBtn = document.getElementById('select-tool-btn');
+        const brushToolBtn = document.getElementById('brush-tool-btn');
+        const eraserToolBtn = document.getElementById('eraser-tool-btn');
+        const brushColorPicker = document.getElementById('brush-color-picker');
+        const brushSizeSlider = document.getElementById('brush-size-slider');
+        const brushSizeValue = document.getElementById('brush-size-value');
+        const layerOrderControls = document.getElementById('layer-order-controls');
+        const layerOrderSeparator = document.getElementById('layer-order-separator');
+        const bringForwardBtn = document.getElementById('bring-forward-btn');
+        const sendBackwardBtn = document.getElementById('send-backward-btn');
+        const bringToFrontBtn = document.getElementById('bring-to-front-btn');
+        const sendToBackBtn = document.getElementById('send-to-back-btn');
+        const objectOpacityControls = document.getElementById('object-opacity-controls');
+        const objectOpacitySeparator = document.getElementById('object-opacity-separator');
+        const objectOpacitySlider = document.getElementById('object-opacity-slider');
+        const objectOpacityValue = document.getElementById('object-opacity-value');
+        const contextMenuEl = document.getElementById('context-menu');
+
+        function saveState(actionType = 'unknown') {
+            if (historyStep < history.length - 1) { history.splice(historyStep + 1); }
+            const activeL = getActivePageLayer(); if (!activeL) return;
+            const state = { pageLayerJSON: activeL.toJSON(), activePageLayerIndex: activePageLayerIndex, };
+            history.push(state);
+            if (history.length > MAX_HISTORY_STEPS) { history.shift(); }
+            historyStep = history.length - 1;
+            updateUndoRedoButtons();
+        }
+        function undo() { if (historyStep <= 0) return; historyStep--; restoreState(history[historyStep]); updateUndoRedoButtons(); }
+        function redo() { if (historyStep >= history.length - 1) return; historyStep++; restoreState(history[historyStep]); updateUndoRedoButtons(); }
+        function restoreState(stateToRestore) {
+            destroyTransformer(); removeTextEditor();
+            const targetPageIndex = stateToRestore.activePageLayerIndex;
+            if (targetPageIndex === -1 || targetPageIndex >= pageLayers.length) { return; }
+            if (pageLayers[targetPageIndex]) { pageLayers[targetPageIndex].destroy(); }
+            const newPageLayer = Konva.Node.create(stateToRestore.pageLayerJSON);
+            stage.add(newPageLayer); pageLayers[targetPageIndex] = newPageLayer; 
+            newPageLayer.pageRect = newPageLayer.findOne('.pageBackgroundRect');
+            newPageLayer.find('.konvaTextNode').forEach(addTextNodeEventListeners);
+            setActivePageKonva(targetPageIndex, false); 
+            renderLayersPanel(); updatePageSizeUIControls(newPageLayer);
+        }
+        function updateUndoRedoButtons() { undoBtn.disabled = historyStep <= 0; redoBtn.disabled = historyStep >= history.length - 1; }
+        undoBtn.addEventListener('click', undo); redoBtn.addEventListener('click', redo);
+
+        function setActiveTool(tool) {
+            currentTool = tool; stage.draggable(tool === 'select'); 
+            konvaContainerWrapper.classList.toggle('drawing-mode', tool === 'brush' || tool === 'eraser');
+            selectToolBtn.classList.toggle('active', tool === 'select');
+            brushToolBtn.classList.toggle('active', tool === 'brush');
+            eraserToolBtn.classList.toggle('active', tool === 'eraser');
+            if (tool !== 'select') { destroyTransformer(); }
+        }
+        selectToolBtn.addEventListener('click', () => setActiveTool('select'));
+        brushToolBtn.addEventListener('click', () => setActiveTool('brush'));
+        eraserToolBtn.addEventListener('click', () => setActiveTool('eraser'));
+        brushSizeSlider.addEventListener('input', (e) => { brushSizeValue.textContent = e.target.value; });
+        function getRelativePointerPositionForLayer(layer) {
+            if(!layer) return null; const transform = layer.getAbsoluteTransform().copy();
+            transform.invert(); const pos = stage.getPointerPosition();
+            if (!pos) return null; return transform.point(pos);
+        }
+        function handleDrawingMouseDown(e) {
+            const activeL = getActivePageLayer();
+            if (!activeL || (e.target.getLayer() !== activeL && e.target !== stage && e.target !== activeL.pageRect) ) return; 
+            isPainting = true; const relativePos = getRelativePointerPositionForLayer(activeL); if(!relativePos) return;
+            const strokeColor = currentTool === 'eraser' ? activeL.getAttr('pageFill') : brushColorPicker.value;
+            const compositeOp = currentTool === 'eraser' ? 'destination-out' : 'source-over';
+            lastLine = new Konva.Line({
+                stroke: strokeColor, strokeWidth: parseInt(brushSizeSlider.value, 10),
+                globalCompositeOperation: compositeOp, lineCap: 'round', lineJoin: 'round',
+                points: [relativePos.x, relativePos.y, relativePos.x, relativePos.y], 
+                id: generateUniqueId(currentTool === 'eraser' ? 'eraseLine' : 'brushLine'),
+                attrs: { nodeType: currentTool === 'eraser' ? 'Borrador' : 'Pincelada', isLocked: false, isShape: true, opacity: 1 }
+            });
+            activeL.add(lastLine); activeL.batchDraw(); 
+        }
+        function handleDrawingMouseMove(e) {
+            if (!isPainting) return; const activeL = getActivePageLayer(); if (!activeL || !lastLine) return;
+            const relativePos = getRelativePointerPositionForLayer(activeL); if (!relativePos) return;
+            let newPoints = lastLine.points().concat([relativePos.x, relativePos.y]);
+            lastLine.points(newPoints); activeL.batchDraw();
+        }
+        function handleDrawingMouseUp() {
+            if (!isPainting) return; isPainting = false;
+            if (lastLine) {
+                if (lastLine.points().length < 4 && currentTool === 'brush') { 
+                    const activeL = getActivePageLayer();
+                    if (activeL) {
+                        const cp = { x: lastLine.points()[0], y: lastLine.points()[1] }; lastLine.destroy(); 
+                        lastLine = new Konva.Circle({ x: cp.x, y: cp.y, radius: parseInt(brushSizeSlider.value,10)/2, fill:brushColorPicker.value, id:generateUniqueId('brushDot'), attrs:{nodeType:'Punto Pincel',isLocked:false,isShape:true,opacity:1}});
+                        activeL.add(lastLine); activeL.batchDraw();
+                    }
+                } else if (currentTool === 'eraser' && lastLine.points().length < 4) { lastLine.destroy(); getActivePageLayer()?.batchDraw(); }
+                saveState('draw'); renderLayersPanel(); 
+            }
+            lastLine = null;
+        }
+
+        sidebarTabs.forEach(tab => { tab.addEventListener('click', () => { sidebarTabs.forEach(t => t.classList.remove('active')); sidebarPanels.forEach(p => p.classList.remove('active')); tab.classList.add('active'); const tId=tab.dataset.tabContent; if(tId){const tp=document.getElementById(tId); if(tp)tp.classList.add('active');}});});
+        triggerImageUploadBtn.addEventListener('click', () => imageUploadInput.click());
+        imageUploadInput.addEventListener('change', handleImageUpload);
+        imageSearchInput.addEventListener('input', () => updateSidebarImageList()); 
+        function generateUniqueId(prefix = 'item') { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9); }
+        function handleImageUpload(event) { const files=event.target.files; if(!files)return; Array.from(files).forEach(f=>processImageFile(f)); imageUploadInput.value='';}
+        function processImageFile(file) { const r=new FileReader();r.onload=(e)=>{const dId=(file.name||"img_"+Date.now()).replace(/\.[^/.]+$/,""); const id=prompt(`ID para "${file.name||dId}":`,dId)||dId; if(id&&id.trim()!==""){const ni={id:id.trim(),name:file.name||id.trim()+".png",src:e.target.result};if(uploadedImages.some(img=>img.id===ni.id)){return;}uploadedImages.push(ni);updateSidebarImageList();}};r.readAsDataURL(file);}
+        function updateSidebarImageList() { const st=imageSearchInput.value.toLowerCase();sidebarImageContainer.innerHTML='';const fi=uploadedImages.filter(i=>i.id.toLowerCase().includes(st));fi.forEach(d=>{const idEl=document.createElement('div');idEl.className='sidebar-image-item';idEl.draggable=true;idEl.dataset.imgSrc=d.src;idEl.dataset.imgId=d.id;const ie=document.createElement('img');ie.src=d.src;ie.alt=d.name;const ns=document.createElement('span');ns.className='img-name';ns.textContent=d.id;idEl.appendChild(ie);idEl.appendChild(ns);sidebarImageContainer.appendChild(idEl);idEl.addEventListener('dragstart',(e)=>{e.dataTransfer.setData('application/json',JSON.stringify({type:'image',imageSrc:d.src,imageId:d.id}));});});}
+
+        function addPageKonva(options = {}, isInitialLoad = false) {
+            const pI=pageLayers.length; const pN=options.name||`pL_${Date.now()}_${pI}`; const pLX=PAGE_LOGICAL_X_INITIAL; const pLY=PAGE_LOGICAL_Y_INITIAL;
+            const pL=new Konva.Layer({name:pN,id:generateUniqueId('pL'),visible:options.visible!==undefined?options.visible:true,attrs:{isPageLayer:true,pageWidth:options.width||PAGE_DEFAULT_WIDTH,pageHeight:options.height||PAGE_DEFAULT_HEIGHT,pageFill:options.fill||PAGE_FILL_COLOR,isLocked:options.isLocked===true,logicalX:pLX,logicalY:pLY}});
+            const pR=new Konva.Rect({x:0,y:0,width:pL.getAttr('pageWidth'),height:pL.getAttr('pageHeight'),fill:pL.getAttr('pageFill'),stroke:PAGE_STROKE_COLOR,strokeWidth:PAGE_STROKE_WIDTH/stage.scaleX(),name:'pageBackgroundRect',id:generateUniqueId('pBg'),shadowColor:'black',shadowBlur:5,shadowOffset:{x:2,y:2},shadowOpacity:0.2,listening:false});
+            pL.add(pR);pR.zIndex(0);pL.pageRect=pR;stage.add(pL);pageLayers.push(pL);
+            if(!isInitialLoad){setActivePageKonva(pI,true);}else{setActivePageKonva(pI,false);centerViewOnPage(pL);setTimeout(()=>zoomFitBtn.click(),150);}
+            updatePageControlsStateKonva();renderLayersPanel();updatePageSizeUIControls(pL);
+            if(!isInitialLoad)saveState('addPage'); return pL;
+        }
+        function getActivePageLayer(){return pageLayers[activePageLayerIndex]||null;}
+        function setActivePageKonva(idx,centerV=true){pageLayers.forEach((l,i)=>{if(l.pageRect){l.pageRect.stroke(PAGE_STROKE_COLOR);l.pageRect.strokeWidth(PAGE_STROKE_WIDTH/stage.scaleX());}if(i!==idx&&l.visible()){l.visible(false);}if(l.getStage()&&(l.visible()||(i===activePageLayerIndex&&i!==idx))){l.batchDraw();}});activePageLayerIndex=(idx>=0&&idx<pageLayers.length)?idx:-1;removeTextEditor();destroyTransformer();const nal=getActivePageLayer();if(nal){nal.visible(true);if(nal.pageRect){nal.pageRect.stroke(PAGE_ACTIVE_STROKE_COLOR);nal.pageRect.strokeWidth(PAGE_ACTIVE_STROKE_WIDTH/stage.scaleX());}if(centerV){centerViewOnPage(nal);}if(nal.getStage())nal.batchDraw();}updatePageControlsStateKonva();updateButtonVisibilityState();const atn=getActiveTextForFormatting();updateTextFormattingToolbarState(atn);renderLayersPanel();updatePageSizeUIControls(nal);updateObjectCoordsIndicator(null);updateObjectOpacityUI(null);}
+        function updateButtonVisibilityState(){const al=getActivePageLayer();if(al){togglePageVisibilityBtn.innerHTML=al.visible()?svgIconVisible:svgIconHidden;togglePageVisibilityBtn.classList.toggle('active',al.visible());}else{togglePageVisibilityBtn.innerHTML=svgIconVisible;togglePageVisibilityBtn.classList.remove('active');}}
+        function deleteActivePageKonva(){const ltd=getActivePageLayer();if(ltd&&confirm("¿Eliminar esta página?")){const i=pageLayers.indexOf(ltd);destroyTransformer();removeTextEditor();ltd.destroy();pageLayers.splice(i,1);const nai=pageLayers.length>0?Math.max(0,i-1):-1;setActivePageKonva(nai,true);updatePageControlsStateKonva();saveState('deletePage');}}
+        function updatePageControlsStateKonva(){totalPagesIndicator.textContent=pageLayers.length;currentPageIndicator.textContent=pageLayers.length>0&&activePageLayerIndex!==-1?activePageLayerIndex+1:0;prevPageBtn.disabled=activePageLayerIndex<=0;nextPageBtn.disabled=activePageLayerIndex>=pageLayers.length-1||pageLayers.length===0;deleteActivePageBtn.disabled=pageLayers.length===0||activePageLayerIndex===-1;addNewPageBtn.disabled=false;updateButtonVisibilityState();updatePageSizeUIControls(getActivePageLayer());}
+        function applyZoom(sm){const os=stage.scaleX();const c={x:stage.width()/2,y:stage.height()/2};const mpt={x:(c.x-stage.x())/os,y:(c.y-stage.y())/os,};const ns=Math.max(0.05,Math.min(os*sm,10));stage.scale({x:ns,y:ns});stage.position({x:c.x-mpt.x*ns,y:c.y-mpt.y*ns,});updateZoomUIKonva();}
+        function centerViewOnPage(pl){if(!pl||!pl.pageRect){stage.x((stage.width()/2)-(PAGE_LOGICAL_X_INITIAL*stage.scaleX()));stage.y((stage.height()/2)-(PAGE_LOGICAL_Y_INITIAL*stage.scaleY()));stage.batchDraw();return;}const s=stage.scaleX();const pa=pl.getAttrs();const pws=pa.pageWidth*s;const phs=pa.pageHeight*s;const tsx=-pa.logicalX*s+(stage.width()-pws)/2;const tsy=-pa.logicalY*s+(stage.height()-phs)/2;stage.x(tsx);stage.y(tsy);stage.batchDraw();}
+        stage.on('wheel',(e)=>{e.evt.preventDefault();const os=stage.scaleX();const p=stage.getPointerPosition();if(!p)return;const mpt={x:(p.x-stage.x())/os,y:(p.y-stage.y())/os,};const nsf=e.evt.deltaY>0?1/1.1:1.1;const ns=Math.max(0.05,Math.min(os*nsf,10));stage.scale({x:ns,y:ns});stage.position({x:p.x-mpt.x*ns,y:p.y-mpt.y*ns,});updateZoomUIKonva();});
+        function updateZoomUIKonva(){const s=stage.scaleX();zoomLevelText.textContent=`${Math.round(s*100)}%`;pageLayers.forEach(l=>{if(l.pageRect){const ia=l===getActivePageLayer();l.pageRect.strokeWidth((ia?PAGE_ACTIVE_STROKE_WIDTH:PAGE_STROKE_WIDTH)/s);}l.find('.simpleRect,.konvaImage,.konvaTextNode').forEach(n=>{if(n.getAttr('baseStrokeWidth')){n.strokeWidth(n.getAttr('baseStrokeWidth')/s);}});});if(currentTransformer){currentTransformer.forceUpdate();}stage.batchDraw();}
+        zoomInBtn.addEventListener('click',()=>applyZoom(1.1)); zoomOutBtn.addEventListener('click',()=>applyZoom(1/1.1));
+        zoomFitBtn.addEventListener('click',()=>{const al=getActivePageLayer();if(al&&al.pageRect&&al.visible()){const pa=al.getAttrs();const sx=stage.width()/(pa.pageWidth*1.05);const sy=stage.height()/(pa.pageHeight*1.05);const ns=Math.min(sx,sy,5);stage.scale({x:ns,y:ns});centerViewOnPage(al);updateZoomUIKonva();}});
+        stage.on('click tap',function(e){if(currentTool!=='select'||currentEditingTextNode)return;const tn=e.target;if(tn===stage||tn.name()==='pageBackgroundRect'){destroyTransformer();updateTextFormattingToolbarState(null);renderLayersPanel();updateObjectCoordsIndicator(null);updateObjectOpacityUI(null);if(tn.name()==='pageBackgroundRect'){const tl=tn.getLayer();if(tl&&tl.getAttr('isPageLayer')){const pi=pageLayers.indexOf(tl);if(pi!==-1&&activePageLayerIndex!==pi){setActivePageKonva(pi,false);}}}return;}const tl=tn.getLayer();if(tn.getAttr('isLocked')){destroyTransformer();updateTextFormattingToolbarState(null);renderLayersPanel();return;}if(tl&&tl.getAttr('isPageLayer')&&tl!==getActivePageLayer()){setActivePageKonva(pageLayers.indexOf(tl),false);}if(tn&&tn.getAttr('isShape')&&!(tn instanceof Konva.Transformer)){addTransformerToNode(tn);}else if(!(tn instanceof Konva.Transformer)&&!tn.findAncestor('.konvajs-transformer')){destroyTransformer();updateTextFormattingToolbarState(null);updateObjectCoordsIndicator(null);updateObjectOpacityUI(null);}renderLayersPanel();});
+        
+        function updateObjectCoordsIndicator(node){if(node&&node.getAttr('isShape')){const b=node.getClientRect({skipTransform:false});coordX.textContent=Math.round(b.x);coordY.textContent=Math.round(b.y);coordW.textContent=Math.round(b.width);coordH.textContent=Math.round(b.height);deleteSelectedObjectBtn.disabled=node.getAttr('isLocked');layerOrderControls.style.display='flex';layerOrderSeparator.style.display='block';updateObjectOpacityUI(node);copyBtn.disabled=node.getAttr('isLocked');duplicateBtn.disabled=node.getAttr('isLocked');}else{coordX.textContent='--';coordY.textContent='--';coordW.textContent='--';coordH.textContent='--';deleteSelectedObjectBtn.disabled=true;layerOrderControls.style.display='none';layerOrderSeparator.style.display='none';updateObjectOpacityUI(null);copyBtn.disabled=true;duplicateBtn.disabled=true;}}
+        function addTransformerToNode(node){if(node.getAttr('isLocked')){destroyTransformer();updateTextFormattingToolbarState(null);renderLayersPanel();updateObjectCoordsIndicator(null);updateObjectOpacityUI(null);return;}let onsJSON=node.toJSON();destroyTransformer();const l=node.getLayer();if(!l||l.getAttr('isLocked')){updateTextFormattingToolbarState(null);renderLayersPanel();updateObjectCoordsIndicator(null);updateObjectOpacityUI(null);return;}currentTransformer=new Konva.Transformer({nodes:[node],keepRatio:node.getAttr('keepRatio')!==undefined?node.getAttr('keepRatio'):true,centeredScaling:true,rotationSnaps:[0,90,180,270],anchorStroke:'#6a0dad',anchorFill:'white',anchorSize:8,borderStroke:'#6a0dad',borderDash:[3,3],rotateEnabled:!node.getAttr('isLocked'),resizeEnabled:!node.getAttr('isLocked'),});l.add(currentTransformer);currentTransformer.moveToTop();l.batchDraw();node.on('transformstart.history',function(){onsJSON=this.toJSON();});node.on('transformend.history',function(){saveState('transform');updateObjectCoordsIndicator(this);});node.on('dragend.history',function(){saveState('drag');updateObjectCoordsIndicator(this);});updateObjectCoordsIndicator(node);updateObjectOpacityUI(node);if(node instanceof Konva.Text){updateTextFormattingToolbarState(node);}else{updateTextFormattingToolbarState(null);}renderLayersPanel();}
+        function destroyTransformer(){if(currentTransformer){currentTransformer.nodes().forEach(n=>{n.off('.history');});const l=currentTransformer.getLayer();currentTransformer.destroy();currentTransformer=null;if(l&&l.getStage())l.batchDraw();updateTextFormattingToolbarState(null);renderLayersPanel();updateObjectCoordsIndicator(null);updateObjectOpacityUI(null);}}
+        deleteSelectedObjectBtn.addEventListener('click', () => {
+            if (currentTransformer && currentTransformer.nodes().length > 0) {
+                const ntd = currentTransformer.nodes()[0];
+                if (ntd && confirm(`Eliminar objeto "${ntd.getAttr('nodeType') || ntd.name()}"?`)) {
+                    const l = ntd.getLayer();
+                    const nodeId = ntd.id(); 
+                    destroyTransformer(); 
+                    const nodeToActuallyDelete = l.findOne('#' + nodeId); 
+                    if (nodeToActuallyDelete) {
+                        nodeToActuallyDelete.destroy();
+                    }
+                    l.batchDraw();
+                    renderLayersPanel();
+                    updateObjectCoordsIndicator(null); 
+                    updateObjectOpacityUI(null);
+                    saveState('deleteObject');
+                }
+            }
+        });
+        function getCenterOfActivePageForNewObject(){const al=getActivePageLayer();if(!al||!al.pageRect){return{x:PAGE_DEFAULT_WIDTH/2,y:PAGE_DEFAULT_HEIGHT/2};}const pa=al.getAttrs();return{x:pa.pageWidth/2,y:pa.pageHeight/2};}
+        function addShapeToActiveLayer(shape, skipHistory = false) {
+            const activeL=getActivePageLayer();if(!activeL){alert("Selecciona página.");return null;}if(activeL.getAttr('isLocked')){alert("Página bloqueada.");return null;}activeL.add(shape);shape.zIndex(activeL.getChildren(n=>n.name()!=='pageBackgroundRect'&&!(n instanceof Konva.Transformer)).length);addTransformerToNode(shape);activeL.batchDraw();renderLayersPanel();if(!skipHistory)saveState('addShape');return shape;
+        }
+        if(addRectBtn){addRectBtn.addEventListener('click',()=>{const cp=getCenterOfActivePageForNewObject();const rw=100;const rh=50;const r=new Konva.Rect({x:cp.x,y:cp.y,width:rw,height:rh,fill:Konva.Util.getRandomColor(),stroke:'black',draggable:true,name:'simpleRect',isShape:true,id:generateUniqueId('rect'),offsetX:rw/2,offsetY:rh/2,opacity:1,attrs:{baseStrokeWidth:1,isLocked:false,nodeType:'Rectángulo'}});r.strokeWidth(r.getAttr('baseStrokeWidth')/stage.scaleX());addShapeToActiveLayer(r);});}
+        konvaContainerWrapper.addEventListener('drop',(e)=>{e.preventDefault();stage.setPointersPositions(e);const pos=stage.getPointerPosition();if(!pos)return;let d;try{d=JSON.parse(e.dataTransfer.getData('application/json'));}catch(err){return;}const al=getActivePageLayer();if(!al||al.getAttr('isLocked')){alert(!al?"Selecciona página.":"Página bloqueada.");return;}const s=stage.scaleX();const rPos=getRelativePointerPositionForLayer(al);if(!rPos)return;if(d.type==='image'&&d.imageSrc&&d.imageId){const io=new Image();io.onload=function(){const ki=new Konva.Image({x:rPos.x,y:rPos.y,image:io,draggable:true,name:`konvaImage`,_customId:d.imageId,isShape:true,id:generateUniqueId('image'),opacity:1,attrs:{isLocked:false,nodeType:`Imagen (${d.imageId})`}});const miw=200/s;const isf=Math.min(1,miw/io.width);ki.width(io.width*isf);ki.height(io.height*isf);ki.offsetX(ki.width()/2/ki.scaleX());ki.offsetY(ki.height()/2/ki.scaleY());addShapeToActiveLayer(ki);};io.src=d.imageSrc;}else if(d.type==='presetText'){let tc="Texto";let fs=20;let ff='Arial';if(d.textType==='title'){tc="Título";fs=48;ff='Impact';}else if(d.textType==='subtitle'){tc="Subtítulo";fs=32;ff='Georgia';}else if(d.textType==='body'){tc="Texto cuerpo";fs=16;}const kt=new Konva.Text({x:rPos.x,y:rPos.y,text:tc,fontSize:fs,fontFamily:ff,fill:'#333',draggable:true,name:`konvaTextNode`,isShape:true,opacity:1,padding:5,id:generateUniqueId('text'),attrs:{textType:d.textType,isLocked:false,nodeType:`Texto: ${tc.substring(0,15)}${tc.length>15?'...':''}`}});kt.offsetX(kt.width()/2/kt.scaleX());kt.offsetY(kt.height()/2/kt.scaleY());addTextNodeEventListeners(kt);addShapeToActiveLayer(kt);}});
+        konvaContainerWrapper.addEventListener('dragover',(e)=>e.preventDefault());
+        presetTextButtons.forEach(b=>{b.addEventListener('dragstart',(e)=>{e.dataTransfer.setData('application/json',JSON.stringify({type:'presetText',textType:e.target.dataset.textType}));});b.addEventListener('click',()=>{const cp=getCenterOfActivePageForNewObject();let tc="Texto";let fs=20;let ff='Arial';const tt=b.dataset.textType;if(tt==='title'){tc="Título";fs=48;ff='Impact';}else if(tt==='subtitle'){tc="Subtítulo";fs=32;ff='Georgia';}else if(tt==='body'){tc="Texto cuerpo";fs=16;}const kt=new Konva.Text({x:cp.x,y:cp.y,text:tc,fontSize:fs,fontFamily:ff,fill:'#333',draggable:true,name:`konvaTextNode`,isShape:true,opacity:1,padding:5,id:generateUniqueId('text'),attrs:{textType:tt,isLocked:false,nodeType:`Texto: ${tc.substring(0,15)}${tc.length>15?'...':''}`}});kt.offsetX(kt.width()/2/kt.scaleX());kt.offsetY(kt.height()/2/kt.scaleY());addTextNodeEventListeners(kt);addShapeToActiveLayer(kt);});});
+        function addTextNodeEventListeners(tn){tn.on('dblclick dbltap',()=>{if(tn.getAttr('isLocked'))return;showTextareaForEditing(tn);});tn.on('mousedown',(e)=>{if(tn.getAttr('isLocked'))return;if(e.evt.button===1){e.evt.preventDefault();showTextareaForEditing(tn);}});tn.on('textChange',function(){const nt=this.text();this.setAttr('nodeType',`Texto: ${nt.substring(0,15)}${nt.length>15?'...':''}`);renderLayersPanel();});}
+        function showTextareaForEditing(tn){if(currentEditingTextNode||tn.getAttr('isLocked'))return;currentEditingTextNode=tn;const ot=tn.text();tn.hide();updateTextFormattingToolbarState(tn);const l=tn.getLayer();if(l&&l.getStage())l.draw();const tp=tn.absolutePosition();const scRect=stage.container().getBoundingClientRect();const ap={x:scRect.left+window.scrollX+tp.x,y:scRect.top+window.scrollY+tp.y,};const ta=document.createElement('textarea');document.body.appendChild(ta);ta.value=tn.text();ta.className='text-editor-textarea';ta.style.display='block';ta.style.position='absolute';ta.style.top=ap.y+'px';ta.style.left=ap.x+'px';const rot=tn.rotation();let trf='';if(rot){trf+=`rotateZ(${rot}deg)`;}const nsX=tn.scaleX();const nsY=tn.scaleY();trf+=` scale(${nsX},${nsY})`;ta.style.transform=trf;ta.style.width=(tn.width()/nsX-(tn.padding()||0)*2)+'px';ta.style.height=(tn.height()/nsY-(tn.padding()||0)*2)+'px';ta.style.fontSize=tn.fontSize()+'px';ta.style.fontFamily=tn.fontFamily();ta.style.color=tn.fill();ta.style.lineHeight=tn.lineHeight()||1.2;ta.style.padding=(tn.padding()||0)+'px';ta.style.border='1px dashed #6a0dad';const taoX=tn.offsetX()*nsX;const taoY=tn.offsetY()*nsY;ta.style.left=(ap.x-taoX)+'px';ta.style.top=(ap.y-taoY)+'px';ta.focus();function hoc(e){if(e.target!==ta){fe();}}function fe(){if(!currentEditingTextNode)return;const nt=ta.value;currentEditingTextNode.text(nt);currentEditingTextNode.offsetX(currentEditingTextNode.width()/2/currentEditingTextNode.scaleX());currentEditingTextNode.offsetY(currentEditingTextNode.height()/2/currentEditingTextNode.scaleY());if(ot!==nt){saveState('textEdit');}removeTextEditor();window.removeEventListener('click',hoc,true);}ta.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();fe();}else if(e.key==='Escape'){currentEditingTextNode.text(ot);removeTextEditor();window.removeEventListener('click',hoc,true);}});ta.addEventListener('blur',fe);setTimeout(()=>{window.addEventListener('click',hoc,true);},0);}
+       
+        function removeTextEditor() {
+            const ta = document.querySelector('.text-editor-textarea');
+            if (ta) {
+                ta.parentNode.removeChild(ta);
+            }
+            if (currentEditingTextNode) {
+                const l = currentEditingTextNode.getLayer();
+                currentEditingTextNode.show();
+                if (l && l.getStage()) {
+                    l.batchDraw();
+                }
+            }
+            currentEditingTextNode = null;
+            // CORRECCIÓN AQUÍ:
+            const atn = (currentTransformer && currentTransformer.nodes().length > 0) ? currentTransformer.nodes()[0] : null;
+            if (atn instanceof Konva.Text) {
+                updateTextFormattingToolbarState(atn);
+            } else {
+                updateTextFormattingToolbarState(null);
+            }
+            renderLayersPanel();
+        }
+
+        function getActiveTextForFormatting() {
+            if (currentEditingTextNode) {
+                return currentEditingTextNode;
+            }
+            // CORRECCIÓN AQUÍ (dos veces):
+            if (currentTransformer && currentTransformer.nodes().length > 0 && currentTransformer.nodes()[0] instanceof Konva.Text) {
+                return currentTransformer.nodes()[0];
+            }
+            return null;
+        }
+        
+        function updateTextFormattingToolbarState(tn){if(tn&&tn instanceof Konva.Text&&!tn.getAttr('isLocked')){textFormattingToolbar.style.display='flex';textToolbarSeparator.style.display='block';fontFamilySelect.value=tn.fontFamily();fontSizeInput.value=tn.fontSize();textColorPicker.value=tn.fill();const fs=tn.fontStyle()||'normal';boldBtn.classList.toggle('active',fs.includes('bold'));italicBtn.classList.toggle('active',fs.includes('italic'));underlineBtn.classList.toggle('active',tn.textDecoration()==='underline');}else{textFormattingToolbar.style.display='none';textToolbarSeparator.style.display='none';}}
+        function applyTextFormattingChanges(tnta){const tn=tnta||getActiveTextForFormatting();if(!tn)return;tn.offsetX(tn.width()/2/tn.scaleX());tn.offsetY(tn.height()/2/tn.scaleY());if(tn.getLayer()&&tn.getLayer().getStage()){tn.getLayer().batchDraw();}saveState('textFormat');}
+        fontFamilySelect.addEventListener('change',function(){const tn=getActiveTextForFormatting();if(tn){tn.fontFamily(this.value);applyTextFormattingChanges(tn);}});
+        fontSizeInput.addEventListener('input',function(){const tn=getActiveTextForFormatting();if(tn){const ns=parseInt(this.value,10);if(ns>0){tn.fontSize(ns);applyTextFormattingChanges(tn);}}});
+        textColorPicker.addEventListener('input',function(){const tn=getActiveTextForFormatting();if(tn){tn.fill(this.value);applyTextFormattingChanges(tn);}});
+        boldBtn.addEventListener('click',function(){const tn=getActiveTextForFormatting();if(tn){let cs=tn.fontStyle()||'n';let b=cs.includes('bold');let i=cs.includes('italic');b=!b;let ns='';if(i)ns+='italic';if(b)ns+=(ns?' ':'')+'bold';if(!ns)ns='normal';tn.fontStyle(ns);this.classList.toggle('active',b);applyTextFormattingChanges(tn);}});
+        italicBtn.addEventListener('click',function(){const tn=getActiveTextForFormatting();if(tn){let cs=tn.fontStyle()||'n';let b=cs.includes('b');let i=cs.includes('i');i=!i;let ns='';if(i)ns+='italic';if(b)ns+=(ns?' ':'')+'bold';if(!ns)ns='normal';tn.fontStyle(ns);this.classList.toggle('active',i);applyTextFormattingChanges(tn);}});
+        underlineBtn.addEventListener('click',function(){const tn=getActiveTextForFormatting();if(tn){const iu=tn.textDecoration()==='underline';tn.textDecoration(iu?'':'underline');this.classList.toggle('active',!iu);applyTextFormattingChanges(tn);}});
+      
+        function renderLayersPanel() {
+            layersPanelContent.innerHTML = '';
+            const activeL = getActivePageLayer();
+            if (!activeL) return;
+
+            const nodes = activeL.getChildren(node => node.name() !== 'pageBackgroundRect' && !(node instanceof Konva.Transformer));
+            
+            nodes.slice().reverse().forEach(node => {
+                if (!node.id()) node.id(generateUniqueId('node')); 
+                
+                const listItem = document.createElement('li');
+                listItem.className = 'layer-item';
+                listItem.dataset.nodeId = node.id();
+                listItem.draggable = true; 
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'layer-item-name';
+                let nodeType = node.getAttr('nodeType') || node.getClassName();
+
+                if (node instanceof Konva.Text && !node.getAttr('nodeType')) { 
+                    nodeType = `Texto: ${node.text().substring(0,15)}${node.text().length > 15 ? '...' : ''}`; 
+                    node.setAttr('nodeType', nodeType); 
+                } else if (node instanceof Konva.Image && node.getAttr('_customId') && !node.getAttr('nodeType')) { 
+                    nodeType = `Imagen (${node.getAttr('_customId')})`; 
+                    node.setAttr('nodeType', nodeType); 
+                } else if ((node.getClassName() === 'Line' || node.getClassName() === 'Circle') && !node.getAttr('nodeType')) { 
+                    const nodeIdStr = node.getAttr('id') || ""; 
+                    nodeType = nodeIdStr.includes('brush') ? 'Pincelada' : (nodeIdStr.includes('erase') ? 'Borrador' : 'Línea/Círculo'); 
+                    node.setAttr('nodeType', nodeType); 
+                }
+                nameSpan.textContent = node.getAttr('nodeType') || nodeType; 
+                nameSpan.title = node.getAttr('nodeType') || nodeType;
+                
+                const controlsDiv = document.createElement('div');
+                controlsDiv.className = 'layer-item-controls';
+                
+                const visibleBtn = document.createElement('button');
+                visibleBtn.innerHTML = node.visible() ? svgIconVisible : svgIconHidden;
+                visibleBtn.title = node.visible() ? "Ocultar capa" : "Mostrar capa";
+                visibleBtn.addEventListener('click', (e) => { 
+                    e.stopPropagation(); 
+                    node.visible(!node.visible()); 
+                    activeL.batchDraw(); 
+                    renderLayersPanel(); 
+                    saveState('visibilityChange'); 
+                });
+                
+                const lockBtn = document.createElement('button');
+                const isNodeLocked = node.getAttr('isLocked') === true;
+                lockBtn.innerHTML = isNodeLocked ? svgIconLockClosed : svgIconLockOpen;
+                lockBtn.title = isNodeLocked ? "Desbloquear capa" : "Bloquear capa"; 
+                if (isNodeLocked) lockBtn.classList.add('locked');
+                
+                lockBtn.addEventListener('click', (e) => { 
+                    e.stopPropagation(); 
+                    const currentLockState = node.getAttr('isLocked'); 
+                    node.setAttr('isLocked', !currentLockState); 
+                    node.draggable(!node.getAttr('isLocked')); 
+                    // CORRECCIÓN AQUÍ (1):
+                    if (node.getAttr('isLocked') && currentTransformer && currentTransformer.nodes().includes(node)) {
+                        destroyTransformer();
+                    } 
+                    renderLayersPanel(); 
+                    saveState('lockChange');
+                });
+                
+                controlsDiv.appendChild(visibleBtn); 
+                controlsDiv.appendChild(lockBtn);
+                listItem.appendChild(nameSpan); 
+                listItem.appendChild(controlsDiv);
+                
+                // CORRECCIÓN AQUÍ (2):
+                if (currentTransformer && currentTransformer.nodes().includes(node)) { 
+                    listItem.classList.add('selected'); 
+                }
+                if (currentEditingTextNode === node) { 
+                    listItem.classList.add('selected'); 
+                }
+                
+                listItem.addEventListener('click', () => { 
+                    if (node.getAttr('isLocked')) { 
+                        destroyTransformer(); 
+                        updateTextFormattingToolbarState(null); 
+                        updateObjectOpacityUI(null); 
+                        const currentlySelected = layersPanelContent.querySelector('.selected'); 
+                        if (currentlySelected) currentlySelected.classList.remove('selected'); 
+                        listItem.classList.add('selected'); 
+                    } else { 
+                        addTransformerToNode(node); 
+                    } 
+                });
+                
+                listItem.addEventListener('dragstart', (e) => { 
+                    draggedLayerItem = node; 
+                    e.dataTransfer.effectAllowed = 'move'; 
+                });
+                listItem.addEventListener('dragover', (e) => { 
+                    e.preventDefault(); 
+                    e.dataTransfer.dropEffect = 'move'; 
+                    listItem.classList.add('dragging-over'); 
+                });
+                listItem.addEventListener('dragleave', () => { 
+                    listItem.classList.remove('dragging-over'); 
+                });
+                listItem.addEventListener('drop', (e) => { 
+                    e.preventDefault(); 
+                    listItem.classList.remove('dragging-over'); 
+                    if (draggedLayerItem && draggedLayerItem !== node) { 
+                        const targetNode = node; 
+                        const activeLayer = getActivePageLayer(); 
+                        if (!activeLayer) return; 
+                        draggedLayerItem.setZIndex(targetNode.getZIndex()); 
+                        activeLayer.batchDraw(); 
+                        renderLayersPanel(); 
+                        saveState('reorder');
+                    } 
+                    draggedLayerItem = null;
+                });
+                listItem.addEventListener('dragend', () => { 
+                    const overItems = layersPanelContent.querySelectorAll('.dragging-over'); 
+                    overItems.forEach(i => i.classList.remove('dragging-over')); 
+                    draggedLayerItem = null; 
+                });
+                
+                layersPanelContent.appendChild(listItem);
+            });
+        }
+        function updatePageSizeUIControls(pl){if(pl){pageSizeControls.style.display='flex';pageWidthInput.value=pl.getAttr('pageWidth');pageHeightInput.value=pl.getAttr('pageHeight');pageWidthInput.disabled=false;pageHeightInput.disabled=false;}else{pageSizeControls.style.display='none';pageWidthInput.value='';pageHeightInput.value='';pageWidthInput.disabled=true;pageHeightInput.disabled=true;}}
+        function handlePageSizeChange(){const al=getActivePageLayer();if(!al)return;let nw=parseInt(pageWidthInput.value,10);let nh=parseInt(pageHeightInput.value,10);if(isNaN(nw)||nw<PAGE_MIN_WIDTH)nw=al.getAttr('pageWidth');if(isNaN(nh)||nh<PAGE_MIN_HEIGHT)nh=al.getAttr('pageHeight');pageWidthInput.value=nw;pageHeightInput.value=nh;al.setAttr('pageWidth',nw);al.setAttr('pageHeight',nh);if(al.pageRect){al.pageRect.width(nw);al.pageRect.height(nh);}al.batchDraw();saveState('pageSizeChange');}
+        pageWidthInput.addEventListener('change',handlePageSizeChange);pageHeightInput.addEventListener('change',handlePageSizeChange);
+        
+        function changeLayerOrder(direction, nodeToChange) {
+            const node = nodeToChange || (currentTransformer ? currentTransformer.nodes()[0] : null);
+            if (!node || node.name() === 'pageBackgroundRect') return;
+            
+            const layer = node.getLayer();
+            if (!layer) return;
+
+            switch (direction) {
+                case 'forward':
+                    node.moveUp();
+                    break;
+                case 'backward':
+                    // Asegurarse de que no se mueva por debajo del fondo (índice 0)
+                    // El objeto con zIndex 1 es el que está justo encima del fondo.
+                    if (node.getZIndex() > 1) { 
+                        node.moveDown();
+                    }
+                    break;
+                case 'front':
+                    node.moveToTop();
+                    break;
+                case 'back':
+                    // Mover justo encima del pageBackgroundRect (que tiene zIndex 0)
+                    node.setZIndex(1); 
+                    break;
+            }
+
+            // CORRECCIÓN AQUÍ:
+            if (currentTransformer && currentTransformer.nodes().includes(node)) {
+                currentTransformer.moveToTop(); // El transformador siempre debe estar encima del nodo que transforma
+            }
+            
+            layer.batchDraw();
+            renderLayersPanel();
+            saveState('layerOrder');
+        }
+
+        bringForwardBtn.addEventListener('click', () => changeLayerOrder('forward'));
+        sendBackwardBtn.addEventListener('click', () => changeLayerOrder('backward'));
+        bringToFrontBtn.addEventListener('click', () => changeLayerOrder('front'));
+        sendToBackBtn.addEventListener('click', () => changeLayerOrder('back'));
+        function updateObjectOpacityUI(node) {
+            if (node && node.getAttr('isShape') && !node.getAttr('isLocked')) {
+                objectOpacityControls.style.display = 'flex';
+                objectOpacitySeparator.style.display = 'block';
+                const co = node.opacity(); // Konva usa opacity de 0 a 1
+                objectOpacitySlider.value = co;
+                objectOpacityValue.textContent = `${Math.round(co * 100)}%`;
+            } else {
+                objectOpacityControls.style.display = 'none';
+                objectOpacitySeparator.style.display = 'none';
+            }
+        }
+
+        objectOpacitySlider.addEventListener('input', function() {
+            if (!currentTransformer || currentTransformer.nodes().length === 0) return;
+            const n = currentTransformer.nodes()[0];
+            if (n) {
+                const newOpacity = parseFloat(this.value);
+                n.opacity(newOpacity);
+                objectOpacityValue.textContent = `${Math.round(newOpacity * 100)}%`;
+                n.getLayer().batchDraw();
+                // No guardar estado en 'input', solo en 'change' o al finalizar la acción principal
+            }
+        });
+
+        objectOpacitySlider.addEventListener('change', function() { 
+            // CORRECCIÓN AQUÍ:
+            if (currentTransformer && currentTransformer.nodes().length > 0) {
+                saveState('opacityChange');
+            }
+        });
+        // --- Funciones Copiar, Pegar, Duplicar ---
+        function copySelectedObject() {
+            // CORRECCIÓN AQUÍ:
+            if (currentTransformer && currentTransformer.nodes().length > 0) {
+                const ntc = currentTransformer.nodes()[0];
+                if (ntc && !ntc.getAttr('isLocked')) {
+                    clipboard = ntc.clone(); // Clonar el nodo
+                    clipboard.id(generateUniqueId(ntc.name() || 'cloned')); // Nuevo ID
+                    // Remover listeners específicos del historial del clon si los tuviera
+                    clipboard.off('.history'); 
+                    pasteBtn.disabled = false;
+                    // console.log("Objeto copiado al portapapeles interno."); // Opcional para depuración
+                }
+            }
+        }
+
+        function pasteObject() {
+            if (!clipboard) { alert("Nada que pegar."); return; }
+            const al = getActivePageLayer();
+            if (!al || al.getAttr('isLocked')) { alert(!al ? "Selecciona página." : "Página bloqueada."); return; }
+            
+            const no = clipboard.clone(); // Clonar desde el portapapeles para múltiples pegados
+            no.id(generateUniqueId(clipboard.name() || 'pasted'));
+            no.x(clipboard.x() + PASTE_OFFSET);
+            no.y(clipboard.y() + PASTE_OFFSET);
+            
+            // Re-asignar listeners si es un nodo de texto, etc.
+            if (no instanceof Konva.Text) addTextNodeEventListeners(no);
+            // Para imágenes, el clon comparte el mismo objeto Image del DOM, lo cual es eficiente.
+            // Para formas complejas con listeners personalizados, podrías necesitar reasignarlos aquí.
+            
+            addShapeToActiveLayer(no); // Esto guarda estado y selecciona
+            
+            // Actualizar posición en clipboard para el siguiente pegado en cascada
+            clipboard.x(no.x()); 
+            clipboard.y(no.y());
+        }
+
+        function duplicateSelectedObject() {
+            // CORRECCIÓN AQUÍ:
+            if (currentTransformer && currentTransformer.nodes().length > 0) {
+                const ntd = currentTransformer.nodes()[0];
+                 if (ntd && !ntd.getAttr('isLocked')) {
+                    const d = ntd.clone({
+                        x: ntd.x() + PASTE_OFFSET,
+                        y: ntd.y() + PASTE_OFFSET,
+                        id: generateUniqueId(ntd.name() || 'duplicated')
+                    });
+                    d.off('.history');
+                    if (d instanceof Konva.Text) addTextNodeEventListeners(d);
+                    addShapeToActiveLayer(d); // Esto guarda estado y selecciona
+                }
+            }
+        }
+
+        copyBtn.addEventListener('click', copySelectedObject);
+        pasteBtn.addEventListener('click', pasteObject);
+        duplicateBtn.addEventListener('click', duplicateSelectedObject);
+        // --- Fin Funciones Copiar, Pegar, Duplicar ---
+       
+       
+        function showContextMenu(x,y,node){contextMenuEl.style.left=x+'px';contextMenuEl.style.top=y+'px';contextMenuEl.style.display='block';contextMenuEl.dataset.nodeId=node.id();}
+        function hideContextMenu(){contextMenuEl.style.display='none';contextMenuEl.removeAttribute('data-node-id');}
+        document.getElementById('ctx-bring-forward').addEventListener('click',()=>{const id=contextMenuEl.dataset.nodeId;if(id){const n=stage.findOne('#'+id);if(n)changeLayerOrder('forward',n);}hideContextMenu();});
+        document.getElementById('ctx-send-backward').addEventListener('click',()=>{const id=contextMenuEl.dataset.nodeId;if(id){const n=stage.findOne('#'+id);if(n)changeLayerOrder('backward',n);}hideContextMenu();});
+        document.getElementById('ctx-bring-to-front').addEventListener('click',()=>{const id=contextMenuEl.dataset.nodeId;if(id){const n=stage.findOne('#'+id);if(n)changeLayerOrder('front',n);}hideContextMenu();});
+        document.getElementById('ctx-send-to-back').addEventListener('click',()=>{const id=contextMenuEl.dataset.nodeId;if(id){const n=stage.findOne('#'+id);if(n)changeLayerOrder('back',n);}hideContextMenu();});
+        document.getElementById('ctx-duplicate').addEventListener('click',()=>{const id=contextMenuEl.dataset.nodeId;if(id){const n=stage.findOne('#'+id);if(n&&!n.getAttr('isLocked')){const d=n.clone({x:n.x()+PASTE_OFFSET,y:n.y()+PASTE_OFFSET,id:generateUniqueId(n.name()||'duplicated')});d.off('.history');if(d instanceof Konva.Text)addTextNodeEventListeners(d);addShapeToActiveLayer(d);}}hideContextMenu();});
+        
+        document.getElementById('ctx-delete').addEventListener('click', () => {
+            const id = contextMenuEl.dataset.nodeId;
+            if (id) {
+                const n = stage.findOne('#' + id);
+                if (n && confirm(`Eliminar objeto?`)) {
+                    const l = n.getLayer();
+                    // CORRECCIÓN AQUÍ:
+                    if (currentTransformer && currentTransformer.nodes().includes(n)) {
+                        destroyTransformer();
+                    }
+                    n.destroy();
+                    l.batchDraw();
+                    renderLayersPanel();
+                    updateObjectCoordsIndicator(null);
+                    updateObjectOpacityUI(null);
+                    saveState('deleteObject');
+                }
+            }
+            hideContextMenu();
+        });
+
+        pdfQualitySlider.addEventListener('input', (e) => { 
+            pdfQualityValue.textContent = e.target.value; 
+        });
+        
+        function downloadLayerAsPDF(l,d,q){return new Promise(r=>{const ct=l.findOne('Transformer');if(ct)ct.hide();const du=l.toDataURL({pixelRatio:q,mimeType:'image/jpeg',quality:0.8});if(ct)ct.show();const pa=l.getAttrs();d.addImage(du,'JPEG',0,0,pa.pageWidth,pa.pageHeight);r();});}
+        downloadPdfCurrentBtn.addEventListener('click',async()=>{const al=getActivePageLayer();if(!al){alert("No hay página activa.");return;}const{jsPDF}=window.jspdf;const q=parseInt(pdfQualitySlider.value,10);const o=al.getAttr('pageWidth')>al.getAttr('pageHeight')?'l':'p';const d=new jsPDF({orientation:o,unit:'px',format:[al.getAttr('pageWidth'),al.getAttr('pageHeight')]});await downloadLayerAsPDF(al,d,q);d.save(`xocolienzo_pagina_${activePageLayerIndex+1}.pdf`);});
+        downloadPdfAllBtn.addEventListener('click',async()=>{if(pageLayers.length===0){alert("No hay páginas.");return;}const{jsPDF}=window.jspdf;const q=parseInt(pdfQualitySlider.value,10);let d;for(let i=0;i<pageLayers.length;i++){const l=pageLayers[i];if(!l.visible())continue;const o=l.getAttr('pageWidth')>l.getAttr('pageHeight')?'l':'p';if(i===0){d=new jsPDF({orientation:o,unit:'px',format:[l.getAttr('pageWidth'),l.getAttr('pageHeight')]});}else{d.addPage([l.getAttr('pageWidth'),l.getAttr('pageHeight')],o);}await downloadLayerAsPDF(l,d,q);}if(d){d.save('xocolienzo_proyecto_completo.pdf');}else{alert("No hay páginas visibles.");}});
+        addNewPageBtn.addEventListener('click',()=>addPageKonva());
+        deleteActivePageBtn.addEventListener('click',deleteActivePageKonva);
+        prevPageBtn.addEventListener('click',()=>{if(activePageLayerIndex>0)setActivePageKonva(activePageLayerIndex-1,true);});
+        nextPageBtn.addEventListener('click',()=>{if(activePageLayerIndex<pageLayers.length-1)setActivePageKonva(activePageLayerIndex+1,true);});
+        togglePageVisibilityBtn.addEventListener('click',()=>{const al=getActivePageLayer();if(al){const nv=!al.visible();al.visible(nv);if(nv){setActivePageKonva(pageLayers.indexOf(al),true);}else{if(al.getStage())al.batchDraw();updateButtonVisibilityState();const np=pageLayers.findIndex(l=>l.visible());if(np!==-1){setActivePageKonva(np,true);}else if(pageLayers.length>0){let fa=0;if(pageLayers[fa]===al&&pageLayers.length>1){fa=1;}if(pageLayers[fa]){pageLayers[fa].visible(true);setActivePageKonva(fa,true);}else{updatePageControlsStateKonva();}}else{updatePageControlsStateKonva();}}saveState('pageVisibility');}});
+        document.getElementById('save-project-btn').addEventListener('click',()=>alert("Guardar no implementado."));
+        document.getElementById('load-project-btn').addEventListener('click',()=>alert("Cargar no implementado."));
+        window.addEventListener('keydown',function(e){if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT'){return;}const isMac=navigator.platform.toUpperCase().indexOf('MAC')>=0;const ctrlOrCmd=isMac?e.metaKey:e.ctrlKey;if(ctrlOrCmd){switch(e.key.toLowerCase()){case'c':e.preventDefault();if(!copyBtn.disabled)copySelectedObject();break;case'v':e.preventDefault();if(!pasteBtn.disabled)pasteObject();break;case'd':e.preventDefault();if(!duplicateBtn.disabled)duplicateSelectedObject();break;case'z':e.preventDefault();if(!undoBtn.disabled)undo();break;case'y':e.preventDefault();if(!redoBtn.disabled)redo();break;}}else if(e.key==='Delete'||e.key==='Backspace'){if(!deleteSelectedObjectBtn.disabled){e.preventDefault();deleteSelectedObjectBtn.click();}}});
+        function initAppKonva(){addPageKonva({name:"pageLayer_initial_0"},true);updateSidebarImageList();updateTextFormattingToolbarState(null);renderLayersPanel();updatePageSizeUIControls(getActivePageLayer());updateObjectCoordsIndicator(null);updateObjectOpacityUI(null);setActiveTool('select');saveState('initial');updateUndoRedoButtons();pasteBtn.disabled=true;copyBtn.disabled=true;duplicateBtn.disabled=true;window.addEventListener('resize',()=>{stage.width(konvaContainerWrapper.clientWidth);stage.height(konvaContainerWrapper.clientHeight);const al=getActivePageLayer();if(al&&al.visible())centerViewOnPage(al);updateZoomUIKonva();});}
+        initAppKonva();
+    });
+    </script>
+</body>
+</html>
