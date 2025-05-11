@@ -2,7 +2,7 @@
 
 
 
-![XOCOFOLIO](xocofolio.jpg)
+![XOCOFOLIO](xocolienzo.jpg)
 
 
 ## Acceso Rápido a la Aplicación
